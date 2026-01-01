@@ -111,8 +111,8 @@ export default function Home() {
         </p>
         <p className="text-gray-500 text-sm">
           📍 {job.location}
-        </p>
-      </div>
+          </p>
+        </div>
       <div className="flex items-center justify-between mb-4">
         <span className="text-2xl font-bold text-navy-600">
           {formatReward(job.reward)}
@@ -249,7 +249,7 @@ export default function Home() {
                   ) : (
                     <div className="text-center py-12">
                       <p className="text-gray-500">現在、募集中の案件はありません。</p>
-                    </div>
+        </div>
                   )}
                 </section>
               </>

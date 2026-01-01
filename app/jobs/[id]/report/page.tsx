@@ -90,7 +90,7 @@ export default function ReportPage() {
           });
 
         if (uploadError) {
-          console.error('Error uploading photo1:', uploadError.message, uploadError.details, uploadError.hint);
+          console.error('Error uploading photo1:', uploadError.message, uploadError);
           alert('写真1のアップロードに失敗しました。もう一度お試しください。');
           setIsSubmitting(false);
           return;
@@ -117,7 +117,7 @@ export default function ReportPage() {
           });
 
         if (uploadError) {
-          console.error('Error uploading photo2:', uploadError.message, uploadError.details, uploadError.hint);
+          console.error('Error uploading photo2:', uploadError.message, uploadError);
           alert('写真2のアップロードに失敗しました。もう一度お試しください。');
           setIsSubmitting(false);
           return;
