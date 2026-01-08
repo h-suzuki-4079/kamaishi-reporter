@@ -144,8 +144,21 @@ export default function ReportPage() {
         ]);
 
       if (reportError) {
-        console.error('Error inserting report:', reportError.message, reportError.details, reportError.hint);
-        alert('報告の送信に失敗しました。もう一度お試しください。');
+        // 詳細なエラーログを出力
+        console.error('[reports insert error]', {
+          message: reportError.message,
+          details: reportError.details,
+          code: reportError.code,
+          hint: reportError.hint,
+          error: reportError,
+        });
+        
+        // 開発環境では詳細なエラーを表示
+        const errorMessage = process.env.NODE_ENV === 'development'
+          ? `報告の送信に失敗しました: ${reportError.message}${reportError.details ? ` (${reportError.details})` : ''}${reportError.code ? ` [${reportError.code}]` : ''}`
+          : '報告の送信に失敗しました。もう一度お試しください。';
+        
+        alert(errorMessage);
         setIsSubmitting(false);
         return;
       }
@@ -157,8 +170,21 @@ export default function ReportPage() {
         .eq('id', Number(params.id));
 
       if (updateError) {
-        console.error('Error updating job status:', updateError.message, updateError.details, updateError.hint);
-        alert('案件のステータス更新に失敗しました。');
+        // 詳細なエラーログを出力
+        console.error('[jobs update error]', {
+          message: updateError.message,
+          details: updateError.details,
+          code: updateError.code,
+          hint: updateError.hint,
+          error: updateError,
+        });
+        
+        // 開発環境では詳細なエラーを表示
+        const errorMessage = process.env.NODE_ENV === 'development'
+          ? `案件のステータス更新に失敗しました: ${updateError.message}${updateError.details ? ` (${updateError.details})` : ''}${updateError.code ? ` [${updateError.code}]` : ''}`
+          : '案件のステータス更新に失敗しました。';
+        
+        alert(errorMessage);
         setIsSubmitting(false);
         return;
       }
@@ -166,8 +192,21 @@ export default function ReportPage() {
       // 成功時はトップページへリダイレクト
       router.push('/?submitted=true');
     } catch (err: any) {
-      console.error('Error details:', err?.message, err?.details, err?.hint);
-      alert('予期しないエラーが発生しました。');
+      // 予期しないエラーの詳細ログ
+      console.error('[reports unexpected error]', {
+        message: err?.message,
+        details: err?.details,
+        code: err?.code,
+        hint: err?.hint,
+        error: err,
+      });
+      
+      // 開発環境では詳細なエラーを表示
+      const errorMessage = process.env.NODE_ENV === 'development'
+        ? `予期しないエラーが発生しました: ${err?.message || String(err)}`
+        : '予期しないエラーが発生しました。';
+      
+      alert(errorMessage);
       setIsSubmitting(false);
     }
   };

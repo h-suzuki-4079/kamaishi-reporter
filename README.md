@@ -57,7 +57,13 @@ ALTER TABLE jobs ADD COLUMN IF NOT EXISTS reference_image TEXT;
    FOR SELECT USING (bucket_id = 'images');
    ```
 
-### 5. 開発サーバーの起動
+### 5. 認証機能のセットアップ
+
+Supabase Dashboard > Authentication > Settings で以下を確認：
+- Email認証が有効になっていること
+- Email確認を必須にするかどうか（開発環境では無効推奨）
+
+### 6. 開発サーバーの起動
 
 ```bash
 npm run dev
@@ -65,8 +71,15 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### 7. 初回ログイン
+
+1. `/signup` でアカウントを作成
+2. 作成後、自動的にログインされます
+3. ヘッダーにメールアドレスとログアウトボタンが表示されます
+
 ## 機能
 
+- **認証機能**: ログイン/サインアップ/ログアウト（Supabase Auth）
 - **案件一覧**: 募集中の案件を一覧表示（管理者モードでは確認中の案件も表示）
 - **案件詳細**: 案件の詳細情報と見本画像を表示
 - **案件登録**: 管理者が新しい案件を登録（見本画像のアップロード対応）

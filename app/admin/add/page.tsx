@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Header from '@/components/Header';
@@ -8,6 +8,8 @@ import { supabase } from '@/lib/supabaseClient';
 
 export default function AdminAddPage() {
   const router = useRouter();
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     company: '',
@@ -19,6 +21,20 @@ export default function AdminAddPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // 認証状態を確認
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login?redirect=/admin/add');
+        return;
+      }
+      setUser(user);
+      setLoading(false);
+    };
+    checkAuth();
+  }, [router]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -83,37 +99,115 @@ export default function AdminAddPage() {
         referenceImageUrl = urlData.publicUrl;
       }
 
+      // ログインユーザーを取得（必ずクライアント側で実行）
+      console.log('[admin/add] Getting user...');
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      // 必ずログを出力
+      console.log('[admin/add] user:', user?.id, user?.email);
+      console.log('[admin/add] userError:', userError);
+      
+      if (userError || !user) {
+        console.error('[admin/add] User not found:', userError);
+        setError('ログインが必要です。再度ログインしてください。');
+        setIsSubmitting(false);
+        router.push('/login?redirect=/admin/add');
+        return;
+      }
+
       // 案件データをデータベースに保存
+      // user_idを明示的に指定（トリガーは保険として残す）
+      const insertPayload = {
+        title: formData.title,
+        company: formData.company,
+        location: formData.location,
+        reward: formData.reward,
+        description: formData.description,
+        reference_image: referenceImageUrl,
+        status: 'open',
+        user_id: user.id, // 明示的にuser_idを設定
+      };
+
+      // 必ずログを出力
+      console.log('[admin/add] insert payload:', insertPayload);
+      console.log('[admin/add] user.id:', user.id);
+
       const { data, error: insertError } = await supabase
         .from('jobs')
-        .insert([
-          {
-            title: formData.title,
-            company: formData.company,
-            location: formData.location,
-            reward: formData.reward,
-            description: formData.description,
-            reference_image: referenceImageUrl,
-            status: 'open',
-          },
-        ])
+        .insert([insertPayload])
         .select();
 
+      // 必ずログを出力
+      if (data && data.length > 0) {
+        console.log('[admin/add] inserted row user_id:', data[0].user_id);
+        console.log('[admin/add] User ID matches:', data[0].user_id === user.id);
+      } else {
+        console.log('[admin/add] No data returned from insert');
+      }
       if (insertError) {
-        console.error('Error inserting job:', insertError);
-        setError('案件の登録に失敗しました。もう一度お試しください。');
+        console.error('[admin/add] insertError:', insertError);
+      }
+
+      if (insertError) {
+        // 詳細なエラーログを出力
+        console.error('[jobs insert error]', {
+          message: insertError.message,
+          details: insertError.details,
+          code: insertError.code,
+          hint: insertError.hint,
+          error: insertError,
+        });
+        
+        // 開発環境では詳細なエラーを表示
+        const errorMessage = process.env.NODE_ENV === 'development'
+          ? `案件の登録に失敗しました: ${insertError.message}${insertError.details ? ` (${insertError.details})` : ''}${insertError.code ? ` [${insertError.code}]` : ''}`
+          : '案件の登録に失敗しました。もう一度お試しください。';
+        
+        setError(errorMessage);
         setIsSubmitting(false);
         return;
       }
 
       // 成功時は一覧ページにリダイレクト
       router.push('/?created=true');
-    } catch (err) {
-      console.error('Error:', err);
-      setError('予期しないエラーが発生しました。');
+    } catch (err: any) {
+      // 予期しないエラーの詳細ログ
+      console.error('[admin/add unexpected error]', {
+        message: err?.message,
+        details: err?.details,
+        code: err?.code,
+        hint: err?.hint,
+        error: err,
+      });
+      
+      // 開発環境では詳細なエラーを表示
+      const errorMessage = process.env.NODE_ENV === 'development'
+        ? `予期しないエラーが発生しました: ${err?.message || String(err)}`
+        : '予期しないエラーが発生しました。';
+      
+      setError(errorMessage);
       setIsSubmitting(false);
     }
   };
+
+  // ローディング中は何も表示しない
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-500">読み込み中...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  // 未認証の場合は何も表示しない（リダイレクト中）
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -130,6 +224,15 @@ export default function AdminAddPage() {
           <h1 className="text-2xl font-bold text-gray-900 mb-6">
             新規案件を登録
           </h1>
+
+          {/* 開発環境でのみログインユーザーIDを表示 */}
+          {process.env.NODE_ENV === 'development' && user && (
+            <div className="mb-4 p-3 bg-gray-100 rounded-lg text-sm">
+              <p data-testid="uid" className="text-gray-700 font-mono">
+                UID: {user.id}
+              </p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-700">

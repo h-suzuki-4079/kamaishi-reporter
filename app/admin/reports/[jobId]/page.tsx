@@ -12,6 +12,7 @@ export default function AdminReportPage() {
   const router = useRouter();
   const params = useParams();
   const jobId = params.jobId as string;
+  const [user, setUser] = useState<any>(null);
   const [job, setJob] = useState<Job | null>(null);
   const [report, setReport] = useState<Report | null>(null);
   const [loading, setLoading] = useState(true);
@@ -19,11 +20,24 @@ export default function AdminReportPage() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // 認証状態を確認
   useEffect(() => {
-    if (jobId) {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        router.push('/login?redirect=/admin/reports/' + jobId);
+        return;
+      }
+      setUser(user);
+    };
+    checkAuth();
+  }, [router, jobId]);
+
+  useEffect(() => {
+    if (jobId && user) {
       fetchData();
     }
-  }, [jobId]);
+  }, [jobId, user]);
 
   async function fetchData() {
     try {
@@ -138,6 +152,11 @@ export default function AdminReportPage() {
       setIsRejecting(false);
     }
   };
+
+  // 未認証の場合は何も表示しない（リダイレクト中）
+  if (!user) {
+    return null;
+  }
 
   if (loading) {
     return (
