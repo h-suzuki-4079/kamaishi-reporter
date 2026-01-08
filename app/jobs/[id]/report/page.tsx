@@ -64,8 +64,11 @@ export default function ReportPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    // 締切判定
+    const isClosed = !!job && job.status !== 'open';
+
     // 締切案件の場合は送信を防ぐ
-    if (job && job.status === 'review') {
+    if (isClosed) {
       return;
     }
     
@@ -175,32 +178,6 @@ export default function ReportPage() {
             ? `報告の送信に失敗しました: ${reportError.message}${reportError.details ? ` (${reportError.details})` : ''}${reportError.code ? ` [${reportError.code}]` : ''}`
             : '報告の送信に失敗しました。もう一度お試しください。';
         }
-        
-        alert(errorMessage);
-        setIsSubmitting(false);
-        return;
-      }
-
-      // jobsテーブルのstatusを'review'に更新
-      const { error: updateError } = await supabase
-        .from('jobs')
-        .update({ status: 'review' })
-        .eq('id', Number(params.id));
-
-      if (updateError) {
-        // 詳細なエラーログを出力
-        console.error('[jobs update error]', {
-          message: updateError.message,
-          details: updateError.details,
-          code: updateError.code,
-          hint: updateError.hint,
-          error: updateError,
-        });
-        
-        // 開発環境では詳細なエラーを表示
-        const errorMessage = process.env.NODE_ENV === 'development'
-          ? `案件のステータス更新に失敗しました: ${updateError.message}${updateError.details ? ` (${updateError.details})` : ''}${updateError.code ? ` [${updateError.code}]` : ''}`
-          : '案件のステータス更新に失敗しました。';
         
         alert(errorMessage);
         setIsSubmitting(false);
@@ -358,25 +335,33 @@ export default function ReportPage() {
           </div>
 
           {/* 締切案件の場合の補足テキスト */}
-          {job && job.status === 'review' && (
-            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                この案件は提出上限に達したため、現在は締切です。
-              </p>
-            </div>
-          )}
+          {(() => {
+            const isClosed = !!job && job.status !== 'open';
+            return isClosed && (
+              <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  この案件は現在、締切です。
+                </p>
+              </div>
+            );
+          })()}
 
-          <button
-            type="submit"
-            disabled={isSubmitting || (job && job.status === 'review')}
-            className="w-full py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isSubmitting 
-              ? '送信中...' 
-              : job && job.status === 'review'
-                ? 'この案件は締切です'
-                : '報告を送信する'}
-          </button>
+          {(() => {
+            const isClosed = !!job && job.status !== 'open';
+            return (
+              <button
+                type="submit"
+                disabled={isSubmitting || isClosed}
+                className="w-full py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting 
+                  ? '送信中...' 
+                  : isClosed
+                    ? 'この案件は締切です'
+                    : '報告を送信する'}
+              </button>
+            );
+          })()}
         </form>
       </main>
     </div>
