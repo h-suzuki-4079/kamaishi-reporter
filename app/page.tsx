@@ -14,8 +14,11 @@ export default function Home() {
   const [reviewJobs, setReviewJobs] = useState<Job[]>([]);
   const [assignedJobs, setAssignedJobs] = useState<Job[]>([]);
   const [openJobs, setOpenJobs] = useState<Job[]>([]);
+  const [openUnsubmitted, setOpenUnsubmitted] = useState<Job[]>([]);
+  const [openSubmitted, setOpenSubmitted] = useState<Job[]>([]);
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
   // 管理者用：全ステータスの案件を取得
   async function fetchAdminJobs() {
@@ -57,6 +60,37 @@ export default function Home() {
         console.error('Error fetching open jobs:', openError);
       } else if (openData) {
         setOpenJobs(openData);
+        
+        // userIdが取得できている場合、提出済み案件を分ける
+        if (userId) {
+          // 提出済みjob_idを取得
+          const { data: reportsData, error: reportsError } = await supabase
+            .from('reports')
+            .select('job_id')
+            .eq('user_id', userId);
+
+          if (reportsError) {
+            console.error('Error fetching reports:', reportsError);
+            // エラー時は全て未提出として扱う
+            setOpenUnsubmitted(openData);
+            setOpenSubmitted([]);
+          } else {
+            const submittedJobIds = new Set(
+              (reportsData || []).map((r: { job_id: number }) => r.job_id)
+            );
+            
+            // 提出済みと未提出に分ける
+            const submitted = openData.filter(job => submittedJobIds.has(job.id));
+            const unsubmitted = openData.filter(job => !submittedJobIds.has(job.id));
+            
+            setOpenSubmitted(submitted);
+            setOpenUnsubmitted(unsubmitted);
+          }
+        } else {
+          // userIdが取得できていない場合は全て未提出として扱う
+          setOpenUnsubmitted(openData);
+          setOpenSubmitted([]);
+        }
       }
 
       // localStorageから自分の担当案件IDを取得
@@ -91,16 +125,27 @@ export default function Home() {
     }
   }
 
+  // userIdを取得
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setUserId(user.id);
+      }
+    };
+    getUser();
+  }, []);
+
   useEffect(() => {
     if (isAdminMode) {
       fetchAdminJobs();
     } else {
       fetchWorkerJobs();
     }
-  }, [isAdminMode]);
+  }, [isAdminMode, userId]);
 
   // 案件カードコンポーネント
-  const JobCard = ({ job, showStatus = false, isAssigned = false, showSubmitButton = false }: { job: Job; showStatus?: boolean; isAssigned?: boolean; showSubmitButton?: boolean }) => {
+  const JobCard = ({ job, showStatus = false, isAssigned = false, showSubmitButton = false, isSubmitted = false }: { job: Job; showStatus?: boolean; isAssigned?: boolean; showSubmitButton?: boolean; isSubmitted?: boolean }) => {
     // 締切判定
     const isClosed = 
       job.status !== 'open' || 
@@ -146,8 +191,14 @@ export default function Home() {
               )}
             </>
           )}
+          {/* 提出済みバッジ */}
+          {isSubmitted && (
+            <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-xs font-medium">
+              提出済み
+            </span>
+          )}
           {/* 締切バッジ（募集中の案件で締切の場合） */}
-          {showSubmitButton && isClosed && (
+          {showSubmitButton && isClosed && !isSubmitted && (
             <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
               締切
             </span>
@@ -177,7 +228,7 @@ export default function Home() {
             </Link>
           )}
           {/* 募集中の案件の「報告を送信」ボタン */}
-          {showSubmitButton && !isAdminMode && !isClosed && (
+          {showSubmitButton && !isAdminMode && !isClosed && !isSubmitted && (
             <Link
               href={`/jobs/${job.id}/report`}
               className="flex-1 text-center py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
@@ -261,20 +312,38 @@ export default function Home() {
                 )}
 
                 {/* 募集中の案件 */}
-                <section className="mb-8">
-                  <h1 className="text-2xl font-bold text-gray-900 mb-6">募集中の案件</h1>
-                  {openJobs.length > 0 ? (
+                {openUnsubmitted.length > 0 && (
+                  <section className="mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-6">募集中の案件</h1>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {openJobs.map((job) => (
+                      {openUnsubmitted.map((job) => (
                         <JobCard key={job.id} job={job} showSubmitButton={true} />
                       ))}
                     </div>
-                  ) : (
+                  </section>
+                )}
+
+                {/* 提出済みの案件 */}
+                {openSubmitted.length > 0 && (
+                  <section className="mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-6">提出済みの案件</h1>
+                    <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                      {openSubmitted.map((job) => (
+                        <JobCard key={job.id} job={job} isSubmitted={true} />
+                      ))}
+                    </div>
+                  </section>
+                )}
+
+                {/* 案件がない場合のメッセージ */}
+                {openUnsubmitted.length === 0 && openSubmitted.length === 0 && (
+                  <section className="mb-8">
+                    <h1 className="text-2xl font-bold text-gray-900 mb-6">募集中の案件</h1>
                     <div className="text-center py-12">
                       <p className="text-gray-500">現在、募集中の案件はありません。</p>
-        </div>
-                  )}
-                </section>
+                    </div>
+                  </section>
+                )}
               </>
             )}
           </>
