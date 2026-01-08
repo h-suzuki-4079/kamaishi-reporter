@@ -19,6 +19,7 @@ export default function Home() {
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const [submittedJobIds, setSubmittedJobIds] = useState<Set<number>>(new Set());
 
   // 管理者用：全ステータスの案件を取得
   async function fetchAdminJobs() {
@@ -61,36 +62,12 @@ export default function Home() {
       } else if (openData) {
         setOpenJobs(openData);
         
-        // userIdが取得できている場合、提出済み案件を分ける
-        if (userId) {
-          // 提出済みjob_idを取得
-          const { data: reportsData, error: reportsError } = await supabase
-            .from('reports')
-            .select('job_id')
-            .eq('user_id', userId);
-
-          if (reportsError) {
-            console.error('Error fetching reports:', reportsError);
-            // エラー時は全て未提出として扱う
-            setOpenUnsubmitted(openData);
-            setOpenSubmitted([]);
-          } else {
-            const submittedJobIds = new Set(
-              (reportsData || []).map((r: { job_id: number }) => r.job_id)
-            );
-            
-            // 提出済みと未提出に分ける
-            const submitted = openData.filter(job => submittedJobIds.has(job.id));
-            const unsubmitted = openData.filter(job => !submittedJobIds.has(job.id));
-            
-            setOpenSubmitted(submitted);
-            setOpenUnsubmitted(unsubmitted);
-          }
-        } else {
-          // userIdが取得できていない場合は全て未提出として扱う
-          setOpenUnsubmitted(openData);
-          setOpenSubmitted([]);
-        }
+        // submittedJobIdsで提出済みと未提出に分ける
+        const submitted = openData.filter(job => submittedJobIds.has(job.id));
+        const unsubmitted = openData.filter(job => !submittedJobIds.has(job.id));
+        
+        setOpenSubmitted(submitted);
+        setOpenUnsubmitted(unsubmitted);
       }
 
       // localStorageから自分の担当案件IDを取得
@@ -131,10 +108,39 @@ export default function Home() {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         setUserId(user.id);
+        console.log('[page] userId:', user.id);
       }
     };
     getUser();
   }, []);
+
+  // userIdが取得できたら、提出済みjob_idを取得
+  useEffect(() => {
+    if (!userId) {
+      return;
+    }
+
+    const fetchSubmittedJobIds = async () => {
+      const { data: reportsData, error: reportsError } = await supabase
+        .from('reports')
+        .select('job_id')
+        .eq('user_id', userId);
+
+      if (reportsError) {
+        console.error('Error fetching reports:', reportsError);
+        setSubmittedJobIds(new Set());
+        return;
+      }
+
+      const ids = new Set(
+        (reportsData || []).map((r: { job_id: number }) => Number(r.job_id))
+      );
+      setSubmittedJobIds(ids);
+      console.log('[page] submittedJobIds.size:', ids.size);
+    };
+
+    fetchSubmittedJobIds();
+  }, [userId]);
 
   useEffect(() => {
     if (isAdminMode) {
@@ -142,7 +148,7 @@ export default function Home() {
     } else {
       fetchWorkerJobs();
     }
-  }, [isAdminMode, userId]);
+  }, [isAdminMode, userId, submittedJobIds]);
 
   // 案件カードコンポーネント
   const JobCard = ({ job, showStatus = false, isAssigned = false, showSubmitButton = false, isSubmitted = false }: { job: Job; showStatus?: boolean; isAssigned?: boolean; showSubmitButton?: boolean; isSubmitted?: boolean }) => {
