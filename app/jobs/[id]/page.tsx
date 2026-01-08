@@ -18,6 +18,7 @@ export default function JobDetailPage() {
   const [loading, setLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isMyJob, setIsMyJob] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
     if (jobId) {
@@ -25,6 +26,22 @@ export default function JobDetailPage() {
       // localStorageをチェックして自分の案件かどうか確認
       const myJobs = JSON.parse(localStorage.getItem('my_jobs') || '[]');
       setIsMyJob(myJobs.includes(parseInt(jobId)));
+      
+      // 提出済みかどうかを確認
+      const checkSubmitted = async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { data: reportsData } = await supabase
+            .from('reports')
+            .select('id')
+            .eq('job_id', Number(jobId))
+            .eq('user_id', user.id)
+            .limit(1);
+          
+          setIsSubmitted((reportsData?.length ?? 0) > 0);
+        }
+      };
+      checkSubmitted();
     }
   }, [jobId]);
 
@@ -154,45 +171,69 @@ export default function JobDetailPage() {
         </div>
 
         {/* ステータスに応じたボタン表示 */}
-        {job.status === 'open' && (
-          <button
-            onClick={async () => {
-              setIsProcessing(true);
-              try {
-                // Supabaseでstatusを'assigned'に更新
-                const { error: updateError } = await supabase
-                  .from('jobs')
-                  .update({ status: 'assigned' })
-                  .eq('id', job.id);
+        {(() => {
+          const isClosed = job.status !== 'open' || isSubmitted;
+          
+          if (job.status === 'open' && !isSubmitted) {
+            return (
+              <button
+                onClick={async () => {
+                  setIsProcessing(true);
+                  try {
+                    // Supabaseでstatusを'assigned'に更新
+                    const { error: updateError } = await supabase
+                      .from('jobs')
+                      .update({ status: 'assigned' })
+                      .eq('id', job.id);
 
-                if (updateError) {
-                  console.error('Error updating job status:', updateError);
-                  alert('案件の受注に失敗しました。もう一度お試しください。');
-                  setIsProcessing(false);
-                  return;
-                }
+                    if (updateError) {
+                      console.error('Error updating job status:', updateError);
+                      alert('案件の受注に失敗しました。もう一度お試しください。');
+                      setIsProcessing(false);
+                      return;
+                    }
 
-                // 更新成功後にlocalStorageに保存
-                const myJobs = JSON.parse(localStorage.getItem('my_jobs') || '[]');
-                if (!myJobs.includes(job.id)) {
-                  myJobs.push(job.id);
-                  localStorage.setItem('my_jobs', JSON.stringify(myJobs));
-                }
-                
-                // 報告フォームへ遷移
-                router.push(`/jobs/${job.id}/report`);
-              } catch (err) {
-                console.error('Error:', err);
-                alert('予期しないエラーが発生しました。');
-                setIsProcessing(false);
-              }
-            }}
-            disabled={isProcessing}
-            className="block w-full text-center py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {isProcessing ? '処理中...' : 'この仕事を受ける（着手）'}
-          </button>
-        )}
+                    // 更新成功後にlocalStorageに保存
+                    const myJobs = JSON.parse(localStorage.getItem('my_jobs') || '[]');
+                    if (!myJobs.includes(job.id)) {
+                      myJobs.push(job.id);
+                      localStorage.setItem('my_jobs', JSON.stringify(myJobs));
+                    }
+                    
+                    // 報告フォームへ遷移
+                    router.push(`/jobs/${job.id}/report`);
+                  } catch (err) {
+                    console.error('Error:', err);
+                    alert('予期しないエラーが発生しました。');
+                    setIsProcessing(false);
+                  }
+                }}
+                disabled={isProcessing}
+                className="block w-full text-center py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isProcessing ? '処理中...' : 'この仕事を受ける（着手）'}
+              </button>
+            );
+          }
+          
+          if (job.status === 'open' && isSubmitted) {
+            return (
+              <div className="space-y-3">
+                <div className="block w-full text-center py-4 px-6 bg-green-100 text-green-800 rounded-lg font-medium text-lg">
+                  提出済みです
+                </div>
+                <Link
+                  href={`/jobs/${job.id}/report`}
+                  className="block w-full text-center py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg"
+                >
+                  報告を確認
+                </Link>
+              </div>
+            );
+          }
+          
+          return null;
+        })()}
 
         {job.status === 'assigned' && (
           <>
