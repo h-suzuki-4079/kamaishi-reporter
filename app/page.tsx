@@ -100,72 +100,95 @@ export default function Home() {
   }, [isAdminMode]);
 
   // 案件カードコンポーネント
-  const JobCard = ({ job, showStatus = false, isAssigned = false }: { job: Job; showStatus?: boolean; isAssigned?: boolean }) => (
-    <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-      <div className="mb-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-2">
-          {job.title}
-        </h2>
-        <p className="text-gray-600 text-sm mb-1">
-          {job.company}
-        </p>
-        <p className="text-gray-500 text-sm">
-          📍 {job.location}
+  const JobCard = ({ job, showStatus = false, isAssigned = false, showSubmitButton = false }: { job: Job; showStatus?: boolean; isAssigned?: boolean; showSubmitButton?: boolean }) => {
+    // 締切判定
+    const isClosed = 
+      job.status !== 'open' || 
+      ((job as any).report_count !== undefined && (job as any).max_submissions !== undefined && 
+       (job as any).report_count >= (job as any).max_submissions);
+
+    return (
+      <div className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
+        <div className="mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            {job.title}
+          </h2>
+          <p className="text-gray-600 text-sm mb-1">
+            {job.company}
           </p>
+          <p className="text-gray-500 text-sm">
+            📍 {job.location}
+            </p>
+          </div>
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-2xl font-bold text-navy-600">
+            {formatReward(job.reward)}
+          </span>
+          {showStatus && (
+            <>
+              {job.status === 'review' && (
+                <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
+                  確認中
+                </span>
+              )}
+              {job.status === 'assigned' && (
+                <>
+                  {job.feedback && job.feedback.trim() !== '' ? (
+                    <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
+                      修正依頼
+                    </span>
+                  ) : (
+                    <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
+                      作業中
+                    </span>
+                  )}
+                </>
+              )}
+            </>
+          )}
+          {/* 締切バッジ（募集中の案件で締切の場合） */}
+          {showSubmitButton && isClosed && (
+            <span className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-xs font-medium">
+              締切
+            </span>
+          )}
         </div>
-      <div className="flex items-center justify-between mb-4">
-        <span className="text-2xl font-bold text-navy-600">
-          {formatReward(job.reward)}
-        </span>
-        {showStatus && (
-          <>
-            {job.status === 'review' && (
-              <span className="px-3 py-1 bg-yellow-100 text-yellow-800 rounded-full text-xs font-medium">
-                確認中
-              </span>
-            )}
-            {job.status === 'assigned' && (
-              <>
-                {job.feedback && job.feedback.trim() !== '' ? (
-                  <span className="px-3 py-1 bg-red-100 text-red-800 rounded-full text-xs font-medium">
-                    修正依頼
-                  </span>
-                ) : (
-                  <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-xs font-medium">
-                    作業中
-                  </span>
-                )}
-              </>
-            )}
-          </>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <Link
-          href={`/jobs/${job.id}`}
-          className="flex-1 text-center py-3 px-4 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium"
-        >
-          詳細を見る
-        </Link>
-        {isAdminMode && job.status === 'review' && (
+        <div className="flex gap-2">
           <Link
-            href={`/admin/reports/${job.id}`}
-            className="flex-1 text-center py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
-          >
-            報告を確認
-          </Link>
-        )}
-        {!isAdminMode && (job.status === 'assigned' || job.status === 'review') && (
-          <Link
-            href={`/jobs/${job.id}/report`}
+            href={`/jobs/${job.id}`}
             className="flex-1 text-center py-3 px-4 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium"
           >
-            {job.status === 'review' ? '報告を確認' : '報告を送信'}
+            詳細を見る
           </Link>
-        )}
+          {isAdminMode && job.status === 'review' && (
+            <Link
+              href={`/admin/reports/${job.id}`}
+              className="flex-1 text-center py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              報告を確認
+            </Link>
+          )}
+          {!isAdminMode && (job.status === 'assigned' || job.status === 'review') && (
+            <Link
+              href={`/jobs/${job.id}/report`}
+              className="flex-1 text-center py-3 px-4 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium"
+            >
+              {job.status === 'review' ? '報告を確認' : '報告を送信'}
+            </Link>
+          )}
+          {/* 募集中の案件の「報告を送信」ボタン */}
+          {showSubmitButton && !isAdminMode && !isClosed && (
+            <Link
+              href={`/jobs/${job.id}/report`}
+              className="flex-1 text-center py-3 px-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+            >
+              報告を送信
+            </Link>
+          )}
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 relative">
@@ -243,7 +266,7 @@ export default function Home() {
                   {openJobs.length > 0 ? (
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {openJobs.map((job) => (
-                        <JobCard key={job.id} job={job} />
+                        <JobCard key={job.id} job={job} showSubmitButton={true} />
                       ))}
                     </div>
                   ) : (
