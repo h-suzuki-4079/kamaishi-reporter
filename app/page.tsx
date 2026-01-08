@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/Header';
@@ -15,7 +15,7 @@ export default function Home() {
   const [assignedJobs, setAssignedJobs] = useState<Job[]>([]);
   const [openJobs, setOpenJobs] = useState<Job[]>([]);
   const [openUnsubmitted, setOpenUnsubmitted] = useState<Job[]>([]);
-  const [openSubmitted, setOpenSubmitted] = useState<Job[]>([]);
+  const [submittedJobs, setSubmittedJobs] = useState<Job[]>([]);
   const [myJobs, setMyJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
@@ -62,11 +62,8 @@ export default function Home() {
       } else if (openData) {
         setOpenJobs(openData);
         
-        // submittedJobIdsで提出済みと未提出に分ける
-        const submitted = openData.filter(job => submittedJobIds.has(job.id));
-        const unsubmitted = openData.filter(job => !submittedJobIds.has(job.id));
-        
-        setOpenSubmitted(submitted);
+        // submittedJobIdsで未提出のみを抽出
+        const unsubmitted = openData.filter(job => !submittedJobIds.has(Number(job.id)));
         setOpenUnsubmitted(unsubmitted);
       }
 
@@ -141,6 +138,42 @@ export default function Home() {
 
     fetchSubmittedJobIds();
   }, [userId]);
+
+  // submittedJobIdsからsubmittedJobsを取得
+  const submittedIds = useMemo(() => Array.from(submittedJobIds), [submittedJobIds]);
+  const idsKey = useMemo(() => submittedIds.slice().sort((a, b) => a - b).join(','), [submittedIds]);
+
+  useEffect(() => {
+    const run = async () => {
+      if (!idsKey) {
+        setSubmittedJobs([]);
+        return;
+      }
+
+      const ids = submittedIds.map((n) => Number(n)).filter((n) => Number.isFinite(n));
+      if (ids.length === 0) {
+        setSubmittedJobs([]);
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('jobs')
+        .select('*')
+        .in('id', ids)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('[page] fetch submittedJobs error:', error);
+        setSubmittedJobs([]);
+        return;
+      }
+
+      setSubmittedJobs((data ?? []).map((j: any) => ({ ...j, id: Number(j.id) })));
+      console.log('[page] submittedJobs.length:', (data ?? []).length);
+    };
+
+    void run();
+  }, [idsKey, submittedIds]);
 
   useEffect(() => {
     if (isAdminMode) {
@@ -330,11 +363,11 @@ export default function Home() {
                 )}
 
                 {/* 提出済みの案件 */}
-                {openSubmitted.length > 0 && (
+                {submittedJobs.length > 0 && (
                   <section className="mb-8">
                     <h1 className="text-2xl font-bold text-gray-900 mb-6">提出済みの案件</h1>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                      {openSubmitted.map((job) => (
+                      {submittedJobs.map((job) => (
                         <JobCard key={job.id} job={job} showStatus={true} isSubmitted={true} />
                       ))}
                     </div>
@@ -342,7 +375,7 @@ export default function Home() {
                 )}
 
                 {/* 案件がない場合のメッセージ */}
-                {openUnsubmitted.length === 0 && openSubmitted.length === 0 && (
+                {openUnsubmitted.length === 0 && submittedJobs.length === 0 && (
                   <section className="mb-8">
                     <h1 className="text-2xl font-bold text-gray-900 mb-6">募集中の案件</h1>
                     <div className="text-center py-12">
