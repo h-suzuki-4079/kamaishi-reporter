@@ -335,7 +335,7 @@ export default function Home() {
                     <h1 className="text-2xl font-bold text-gray-900 mb-6">提出済みの案件</h1>
                     <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                       {openSubmitted.map((job) => (
-                        <JobCard key={job.id} job={job} isSubmitted={true} />
+                        <JobCard key={job.id} job={job} showStatus={true} isSubmitted={true} />
                       ))}
                     </div>
                   </section>
