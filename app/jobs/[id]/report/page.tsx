@@ -152,11 +152,24 @@ export default function ReportPage() {
           hint: reportError.hint,
           error: reportError,
         });
+        console.error('report submit failed:', reportError);
         
-        // 開発環境では詳細なエラーを表示
-        const errorMessage = process.env.NODE_ENV === 'development'
-          ? `報告の送信に失敗しました: ${reportError.message}${reportError.details ? ` (${reportError.details})` : ''}${reportError.code ? ` [${reportError.code}]` : ''}`
-          : '報告の送信に失敗しました。もう一度お試しください。';
+        // Submission limit reached の場合は専用メッセージを表示
+        // 判定を強化: code === "P0001" または JSON.stringify に "Submission limit reached" を含む
+        const errorString = JSON.stringify(reportError);
+        const isSubmissionLimitReached = 
+          reportError.code === 'P0001' || 
+          errorString.includes('Submission limit reached');
+        
+        let errorMessage: string;
+        if (isSubmissionLimitReached) {
+          errorMessage = 'この案件は提出上限に達したため、現在は締切です。';
+        } else {
+          // それ以外のエラーは詳細メッセージを表示
+          errorMessage = process.env.NODE_ENV === 'development'
+            ? `報告の送信に失敗しました: ${reportError.message}${reportError.details ? ` (${reportError.details})` : ''}${reportError.code ? ` [${reportError.code}]` : ''}`
+            : '報告の送信に失敗しました。もう一度お試しください。';
+        }
         
         alert(errorMessage);
         setIsSubmitting(false);
