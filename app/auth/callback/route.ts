@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
   }
 
   // redirect パラメータの検証（open redirect 対策）
-  let redirectPath = '/admin/add'; // デフォルト
+  let redirectPath = '/'; // デフォルト
   if (redirect) {
     // 同一オリジン内のパスのみ許可
     // http://, https://, // で始まるものは拒否

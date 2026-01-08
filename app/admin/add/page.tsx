@@ -22,14 +22,10 @@ export default function AdminAddPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 認証状態を確認
+  // 認証状態を確認（layoutに任せるため、ここではユーザー情報のみ取得）
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login?redirect=/admin/add');
-        return;
-      }
       setUser(user);
       setLoading(false);
     };
@@ -111,7 +107,6 @@ export default function AdminAddPage() {
         console.error('[admin/add] User not found:', userError);
         setError('ログインが必要です。再度ログインしてください。');
         setIsSubmitting(false);
-        router.push('/login?redirect=/admin/add');
         return;
       }
 
@@ -190,23 +185,32 @@ export default function AdminAddPage() {
     }
   };
 
-  // ローディング中は何も表示しない
+  // ローディング中は確認中表示
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50">
         <Header />
         <main className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
-            <p className="text-gray-500">読み込み中...</p>
+            <p className="text-gray-500">確認中...</p>
           </div>
         </main>
       </div>
     );
   }
 
-  // 未認証の場合は何も表示しない（リダイレクト中）
+  // userが取れない場合は確認中表示（layoutに任せる）
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-500">確認中...</p>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   return (

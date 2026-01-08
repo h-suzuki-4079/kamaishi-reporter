@@ -20,14 +20,10 @@ export default function AdminReportPage() {
   const [isRejecting, setIsRejecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // 認証状態を確認
+  // 認証状態を確認（layoutに任せるため、ここではユーザー情報のみ取得）
   useEffect(() => {
     const checkAuth = async () => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        router.push('/login?redirect=/admin/reports/' + jobId);
-        return;
-      }
       setUser(user);
     };
     checkAuth();
@@ -153,9 +149,18 @@ export default function AdminReportPage() {
     }
   };
 
-  // 未認証の場合は何も表示しない（リダイレクト中）
+  // userが取れない場合は確認中表示（layoutに任せる）
   if (!user) {
-    return null;
+    return (
+      <div className="min-h-screen bg-gray-50">
+        <Header />
+        <main className="container mx-auto px-4 py-8">
+          <div className="text-center py-12">
+            <p className="text-gray-500">確認中...</p>
+          </div>
+        </main>
+      </div>
+    );
   }
 
   if (loading) {
