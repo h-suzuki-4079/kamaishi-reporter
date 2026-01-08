@@ -63,6 +63,11 @@ export default function ReportPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 締切案件の場合は送信を防ぐ
+    if (job && job.status === 'review') {
+      return;
+    }
     
     // 写真が少なくとも1枚は必要
     if (!photo1 && !photo2) {
@@ -352,12 +357,25 @@ export default function ReportPage() {
             />
           </div>
 
+          {/* 締切案件の場合の補足テキスト */}
+          {job && job.status === 'review' && (
+            <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <p className="text-sm text-yellow-800">
+                この案件は提出上限に達したため、現在は締切です。
+              </p>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (job && job.status === 'review')}
             className="w-full py-4 px-6 bg-navy-600 text-white rounded-lg hover:bg-navy-700 transition-colors font-medium text-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isSubmitting ? '送信中...' : '報告を送信する'}
+            {isSubmitting 
+              ? '送信中...' 
+              : job && job.status === 'review'
+                ? 'この案件は締切です'
+                : '報告を送信する'}
           </button>
         </form>
       </main>
